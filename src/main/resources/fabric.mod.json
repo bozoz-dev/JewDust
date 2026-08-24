@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "jewdust",
+  "version": "${version}",
+  "name": "JewDust",
+  "description": "A Fabric utility mod for Minecraft.",
+  "authors": [
+    "axziom",
+    "widerthaneurasia"
+  ],
+  "contact": {
+  },
+  "license": "AGPL-3.0-or-later",
+  "environment": "client",
+  "accessWidener": "jewdust.accesswidener",
+  "entrypoints": {
+    "client": [
+      "dev.axziom.JewDust"
+    ],
+    "main": [
+      "dev.axziom.JewDust"
+    ]
+  },
+  "mixins": [
+    "jewdust.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
