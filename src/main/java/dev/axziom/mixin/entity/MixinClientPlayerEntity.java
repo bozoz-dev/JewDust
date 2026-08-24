@@ -6,19 +6,18 @@ import dev.axziom.event.Stage;
 import dev.axziom.event.impl.entity.player.PreTickEvent;
 import dev.axziom.event.impl.entity.player.TickEvent;
 import dev.axziom.event.impl.entity.player.UpdateWalkingPlayerEvent;
+import dev.axziom.features.modules.player.FreecamModule;
 import dev.axziom.features.modules.movement.VelocityModule;
 import dev.axziom.features.modules.movement.NoSlowModule;
 import dev.axziom.features.modules.movement.SprintModule;
 import dev.axziom.features.modules.render.NoRenderModule;
 import dev.axziom.features.modules.world.ScaffoldModule;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -48,8 +47,8 @@ public class MixinClientPlayerEntity {
     }
 
     @Inject(
-        method = "aiStep",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
+            method = "aiStep",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
     )
     private void scaffold$suppressSneakAfterInputTick(CallbackInfo ci) {
         ScaffoldModule scaffold = JewDust.moduleManager.getModuleByClass(ScaffoldModule.class);
@@ -64,8 +63,8 @@ public class MixinClientPlayerEntity {
     }
 
     @Inject(
-        method = "aiStep",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
+            method = "aiStep",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
     )
     private void sprint$applyBeforeJump(CallbackInfo ci) {
         SprintModule sprint = JewDust.moduleManager.getModuleByClass(SprintModule.class);
@@ -75,8 +74,8 @@ public class MixinClientPlayerEntity {
     }
 
     @Inject(
-        method = "aiStep",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
+            method = "aiStep",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
     )
     private void jewdust$moveFixAfterInputTick(CallbackInfo ci) {
         var rotation = JewDust.rotationManager;
@@ -94,6 +93,21 @@ public class MixinClientPlayerEntity {
         self.input.moveVector = new Vec2(leftImpulse, forwardImpulse).normalized();
     }
 
+    @Inject(
+            method = "aiStep",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = At.Shift.AFTER)
+    )
+    private void jewdust$freecamSuppressPlayerInput(CallbackInfo ci) {
+        if (JewDust.moduleManager == null) return;
+        FreecamModule freecam = JewDust.moduleManager.getModuleByClass(FreecamModule.class);
+        if (freecam == null || !freecam.isEnabled()) return;
+
+        LocalPlayer self = (LocalPlayer) (Object) this;
+        self.input.keyPresses = new Input(false, false, false, false,
+                false, freecam.shouldStaySneaking(), false);
+        self.input.moveVector = new Vec2(0.0f, 0.0f);
+    }
+
     @Inject(method = "moveTowardsClosestSpace", at = @At("HEAD"), cancellable = true)
     private void cancelBlockPush(double x, double z, CallbackInfo ci) {
         VelocityModule velocity = JewDust.moduleManager.getModuleByClass(VelocityModule.class);
@@ -103,8 +117,8 @@ public class MixinClientPlayerEntity {
     }
 
     @ModifyExpressionValue(
-        method = "modifyInput",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;itemUseSpeedMultiplier()F")
+            method = "modifyInput",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;itemUseSpeedMultiplier()F")
     )
     private float noSlow$eatSpeed(float original) {
         return NoSlowModule.shouldCancelConsumeSlow() ? 1.0f : original;
@@ -118,14 +132,12 @@ public class MixinClientPlayerEntity {
         }
     }
 
-    @Redirect(
-        method = "handlePortalTransitionEffect",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;isAllowedInPortal()Z")
+    @ModifyExpressionValue(
+            method = "handlePortalTransitionEffect",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;isAllowedInPortal()Z"),
+            require = 0
     )
-    private boolean jewdust$portalGui(Screen screen) {
-        if (NoRenderModule.isActive(m -> m.portalGui.getValue())) {
-            return true;
-        }
-        return screen.isAllowedInPortal();
+    private boolean jewdust$portalGui(boolean original) {
+        return original || NoRenderModule.isActive(m -> m.portalGui.getValue());
     }
 }

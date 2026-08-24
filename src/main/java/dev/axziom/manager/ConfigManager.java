@@ -72,7 +72,7 @@ public class ConfigManager {
             case "Double" -> setting.setValue(element.getAsDouble());
             case "Float" -> setting.setValue(element.getAsFloat());
             case "Integer" -> setting.setValue(element.getAsInt());
-            case "String" -> setting.setValue(element.getAsString().replace("_", " "));
+            case "String" -> setting.setValue(element.getAsString());
             case "Bind" -> setting.setValue(new Bind(element.getAsInt()));
             case "Color" -> {
                 try {

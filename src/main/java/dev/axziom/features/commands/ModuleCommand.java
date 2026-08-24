@@ -8,6 +8,9 @@ import dev.axziom.features.settings.Setting;
 import dev.axziom.manager.CommandManager;
 
 import java.awt.*;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Locale;
 
 import static com.mojang.brigadier.arguments.BoolArgumentType.getBool;
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
@@ -29,6 +32,10 @@ public class ModuleCommand extends Command {
     @SuppressWarnings("unchecked")
     @Override
     public void createArgumentBuilder(LiteralArgumentBuilder<CommandManager> builder) {
+        if (module instanceof TargetListCommandSource source) {
+            registerTargetLists(builder, source);
+        }
+
         for (Setting<?> setting : module.getSettings()) {
             Class<?> type = setting.getDefaultValue().getClass();
 
@@ -44,6 +51,81 @@ public class ModuleCommand extends Command {
                 registerColorArgument(builder, (Setting<Color>) setting);
             }
         }
+    }
+
+    private void registerTargetLists(LiteralArgumentBuilder<CommandManager> builder,
+                                     TargetListCommandSource source) {
+        for (TargetListCommandSource.TargetList list : source.getTargetLists()) {
+            LiteralArgumentBuilder<CommandManager> listBuilder = literal(list.commandName())
+                    .executes(ctx -> showTargets(list));
+
+            listBuilder.then(literal("list").executes(ctx -> showTargets(list)));
+            listBuilder.then(literal("clear").executes(ctx -> {
+                list.setting().setValue("");
+                source.onTargetListsChanged();
+                return success("Cleared %s.%s", module.getName(), list.commandName());
+            }));
+
+            listBuilder.then(literal("add")
+                    .then(targetArgument(list)
+                            .executes(ctx -> addTarget(source, list, getString(ctx, "target")))));
+            listBuilder.then(literal("del")
+                    .then(targetArgument(list)
+                            .executes(ctx -> removeTarget(source, list, getString(ctx, "target")))));
+            listBuilder.then(literal("remove")
+                    .then(targetArgument(list)
+                            .executes(ctx -> removeTarget(source, list, getString(ctx, "target")))));
+
+            builder.then(listBuilder);
+        }
+    }
+
+    private com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandManager, String> targetArgument(
+            TargetListCommandSource.TargetList list) {
+        return argument("target", com.mojang.brigadier.arguments.StringArgumentType.word())
+                .suggests((ctx, suggestions) -> {
+                    String remaining = suggestions.getRemainingLowerCase();
+                    Collection<String> values = list.suggestions().get();
+                    for (String value : values) {
+                        if (value.toLowerCase(Locale.ROOT).startsWith(remaining)) suggestions.suggest(value);
+                    }
+                    return suggestions.buildFuture();
+                });
+    }
+
+    private int showTargets(TargetListCommandSource.TargetList list) {
+        LinkedHashSet<String> values = TargetListCommandSource.values(list.setting());
+        if (values.isEmpty()) return success("%s.%s is empty", module.getName(), list.commandName());
+        return success("%s.%s (%s): %s", module.getName(), list.commandName(), values.size(),
+                String.join(", ", values));
+    }
+
+    private int addTarget(TargetListCommandSource source, TargetListCommandSource.TargetList list, String input) {
+        String normalized = list.normalizer().apply(input);
+        if (normalized == null) return fail("Unknown %s: %s", list.targetName(), input);
+
+        LinkedHashSet<String> values = TargetListCommandSource.values(list.setting());
+        if (!values.add(normalized)) return success("%s is already in %s.%s", normalized,
+                module.getName(), list.commandName());
+
+        list.setting().setValue(TargetListCommandSource.join(values));
+        source.onTargetListsChanged();
+        return success("Added %s to %s.%s", normalized, module.getName(), list.commandName());
+    }
+
+    private int removeTarget(TargetListCommandSource source, TargetListCommandSource.TargetList list, String input) {
+        LinkedHashSet<String> values = TargetListCommandSource.values(list.setting());
+        String normalized = list.normalizer().apply(input);
+        if (normalized == null) {
+            String raw = input.trim().toLowerCase(Locale.ROOT);
+            normalized = raw.contains(":") ? raw : "minecraft:" + raw;
+        }
+        if (!values.remove(normalized)) return fail("%s is not in %s.%s", normalized,
+                module.getName(), list.commandName());
+
+        list.setting().setValue(TargetListCommandSource.join(values));
+        source.onTargetListsChanged();
+        return success("Removed %s from %s.%s", normalized, module.getName(), list.commandName());
     }
 
     private void registerColorArgument(LiteralArgumentBuilder<CommandManager> builder,

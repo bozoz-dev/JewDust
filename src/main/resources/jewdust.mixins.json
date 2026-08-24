@@ -35,6 +35,7 @@
     "network.MixinMultiPlayerGameMode",
     "render.GLBufferAccessor",
     "render.MixinBlockRenderDispatcher",
+    "render.MixinCamera",
     "render.MixinChestRenderer",
     "render.MixinClientLevelNoRender",
     "render.MixinCustomHeadLayer",

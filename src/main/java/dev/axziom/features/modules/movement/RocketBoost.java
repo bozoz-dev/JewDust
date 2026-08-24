@@ -1,9 +1,14 @@
 package dev.axziom.features.modules.movement;
 
+import dev.axziom.JewDust;
 import dev.axziom.features.commands.Command;
 import dev.axziom.features.modules.Module;
+import dev.axziom.features.modules.player.FreeLookModule;
 import dev.axziom.features.settings.Setting;
+import dev.axziom.mixin.entity.FireworkRocketEntityAccessor;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -12,18 +17,21 @@ public final class RocketBoost extends Module {
     private static final double EPSILON = 1.0e-6;
     private static final double ANTI_TICK_SKIPPING = 0.05;
 
-    public final Setting<Double> speed = num("Speed", 10.0, 0.1, 10.0);
-    public final Setting<Double> amount = num("Amount", 1.7, 0.05, 3.0);
-    public final Setting<Double> alignment = num("Alignment", 30.0, 0.0, 90.0);
-    public final Setting<Boolean> requireInput = bool("RequireInput", false);
-    public final Setting<Boolean> debug = bool("Debug", false);
+    public final Setting<Double> boostSpeed = num("BoostSpeed", 1.7, 0.1, 10.0);
+    public final Setting<Boolean> rescale = bool("GrimRescale", true);
+    public final Setting<Double> rescaleAmount = num("RescaleAmount", 1.65, 0.05, 3.0);
+    public final Setting<Double> upPitch = num("UpPitch", -45.0, -90.0, 90.0).setPage("Controls");
+    public final Setting<Double> downPitch = num("DownPitch", 45.0, -90.0, 90.0).setPage("Controls");
+    public final Setting<Boolean> debug = bool("Debug", false).setPage("Safety");
     public final Setting<Boolean> wallCheck = bool("WallCheck", false).setPage("Safety");
     public final Setting<Integer> lookahead = num("Lookahead", 2, 1, 10).setPage("Safety");
     public final Setting<Boolean> chunkCheck = bool("ChunkCheck", false).setPage("Safety");
     public final Setting<Boolean> pauseInFluid = bool("PauseInFluid", false).setPage("Safety");
 
     private Vec3 lastKnownClientVelocity = Vec3.ZERO;
-    private Vec3 overridingFireworkVelocity;
+    private Vec3 currentFireworkVelocity;
+    private Vec3 nextTravelOverride;
+    private Vec3 computedSafeOverride;
     private float lastPitch;
     private float lastYaw;
     private boolean lastInWater;
@@ -33,7 +41,7 @@ public final class RocketBoost extends Module {
     private int debugTicks;
 
     public RocketBoost() {
-        super("RocketBoost", "Replaces attached-firework velocity with a fast server-acceptable gliding velocity.", Category.MOVEMENT);
+        super("RocketBoost", "Boosts attached-firework elytra velocity with silent Space/Shift pitch control.", Category.MOVEMENT);
     }
 
     @Override
@@ -48,14 +56,40 @@ public final class RocketBoost extends Module {
 
     @Override
     public void onTick() {
-        prepare();
+        currentFireworkVelocity = null;
+        nextTravelOverride = null;
+        computedSafeOverride = null;
+        prepared = false;
+
         if (nullCheck()) {
             stateInitialized = false;
             return;
         }
-        lastKnownClientVelocity = mc.player.getDeltaMovement();
-        lastPitch = mc.player.getXRot();
-        lastYaw = mc.player.getYRot();
+
+        Vec3 velocityBeforeBoost = mc.player.getDeltaMovement();
+        float controlledYaw = getControlledYaw();
+        float controlledPitch = getControlledPitch();
+
+        if (mc.player.isFallFlying()
+                && hasAttachedFirework()
+                && (!pauseInFluid.getValue() || (!mc.player.isInWater() && !mc.player.isInLava()))) {
+            Vec3 look = directionFromRotation(controlledPitch, controlledYaw).normalize();
+            Vec3 requested = look.scale(boostSpeed.getValue());
+
+            if (rescale.getValue()) computeSafeOverride(requested, look);
+            Vec3 output = computedSafeOverride != null ? computedSafeOverride : requested;
+
+            if (finite(output) && passesSafetyChecks(output)) {
+                mc.player.setDeltaMovement(requested);
+                currentFireworkVelocity = output;
+                nextTravelOverride = computedSafeOverride;
+                prepared = true;
+            }
+        }
+
+        lastKnownClientVelocity = velocityBeforeBoost;
+        lastPitch = controlledPitch;
+        lastYaw = controlledYaw;
         lastInWater = mc.player.isInWater();
         lastInLava = mc.player.isInLava();
         stateInitialized = true;
@@ -63,35 +97,53 @@ public final class RocketBoost extends Module {
     }
 
     public Vec3 overrideFireworkVelocity(Vec3 vanilla) {
-        prepare();
-        if (!isEnabled() || !prepared || overridingFireworkVelocity == null) return vanilla;
-        Vec3 replacement = overridingFireworkVelocity;
+        if (!isEnabled() || !prepared || currentFireworkVelocity == null) return vanilla;
+
         if (debug.getValue() && debugTicks <= 0) {
             Command.sendMessage("RocketBoost %.3f -> %.3f (%.3f, %.3f, %.3f)", vanilla.length(),
-                    replacement.length(), replacement.x, replacement.y, replacement.z);
+                    currentFireworkVelocity.length(), currentFireworkVelocity.x,
+                    currentFireworkVelocity.y, currentFireworkVelocity.z);
             debugTicks = 20;
         }
-        return replacement;
+        return currentFireworkVelocity;
     }
 
-    private void prepare() {
-        prepared = false;
-        overridingFireworkVelocity = null;
-        if (nullCheck() || !mc.player.isFallFlying()) return;
-        if (pauseInFluid.getValue() && (mc.player.isInWater() || mc.player.isInLava())) return;
-        if (requireInput.getValue() && !hasMovementInput()) return;
+    public Vec3 consumeTravelOverride() {
+        Vec3 result = nextTravelOverride;
+        nextTravelOverride = null;
+        return result;
+    }
 
-        Vec3 look = mc.player.getLookAngle();
-        if (look.lengthSqr() < EPSILON || !isAligned(look)) return;
-        computeOverride(look.normalize().scale(speed.getValue()), look.normalize());
-        if (overridingFireworkVelocity != null && passesSafetyChecks(overridingFireworkVelocity)) {
-            prepared = true;
-        } else {
-            overridingFireworkVelocity = null;
+    public boolean hasSilentPitchOverride() {
+        if (!isEnabled() || nullCheck() || !mc.player.isFallFlying()) return false;
+        return mc.options.keyJump.isDown() != mc.options.keyShift.isDown();
+    }
+
+    public float getControlledPitch() {
+        if (nullCheck()) return 0.0f;
+        boolean up = mc.options.keyJump.isDown();
+        boolean down = mc.options.keyShift.isDown();
+        if (up != down) return (up ? upPitch.getValue() : downPitch.getValue()).floatValue();
+        return mc.player.getXRot();
+    }
+
+    public float getControlledYaw() {
+        if (nullCheck()) return 0.0f;
+        FreeLookModule freeLook = JewDust.moduleManager == null
+                ? null : JewDust.moduleManager.getModuleByClass(FreeLookModule.class);
+        if (freeLook != null && freeLook.cameraMode()) return freeLook.getCameraYaw();
+        return mc.player.getYRot();
+    }
+
+    private boolean hasAttachedFirework() {
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof FireworkRocketEntity rocket)) continue;
+            if (((FireworkRocketEntityAccessor) rocket).jewdust$getAttachedToEntity() == mc.player) return true;
         }
+        return false;
     }
 
-    private void computeOverride(Vec3 requested, Vec3 look) {
+    private void computeSafeOverride(Vec3 requested, Vec3 look) {
         if (!stateInitialized || requested.lengthSqr() < EPSILON) return;
 
         Vec3 previous = lastKnownClientVelocity;
@@ -102,7 +154,7 @@ public final class RocketBoost extends Module {
         if (previousLook.lengthSqr() < EPSILON) previousLook = look;
         else previousLook = previousLook.normalize();
 
-        double threshold = Math.min(amount.getValue(), requested.length());
+        double threshold = Math.min(rescaleAmount.getValue(), requested.length());
         double minX = clamp((Math.min(-ANTI_TICK_SKIPPING, look.x) + Math.min(-ANTI_TICK_SKIPPING, previousLook.x)) * threshold, -threshold, threshold);
         double maxX = clamp((Math.max(ANTI_TICK_SKIPPING, look.x) + Math.max(ANTI_TICK_SKIPPING, previousLook.x)) * threshold, -threshold, threshold);
         double minY = clamp((Math.min(-ANTI_TICK_SKIPPING, look.y) + Math.min(-ANTI_TICK_SKIPPING, previousLook.y)) * threshold, -threshold, threshold);
@@ -110,9 +162,12 @@ public final class RocketBoost extends Module {
         double minZ = clamp((Math.min(-ANTI_TICK_SKIPPING, look.z) + Math.min(-ANTI_TICK_SKIPPING, previousLook.z)) * threshold, -threshold, threshold);
         double maxZ = clamp((Math.max(ANTI_TICK_SKIPPING, look.z) + Math.max(ANTI_TICK_SKIPPING, previousLook.z)) * threshold, -threshold, threshold);
 
-        double scaleX = axisScale(requested.x, predicted.x + Math.min(0.0, minX - previous.x), predicted.x + Math.max(0.0, maxX - previous.x));
-        double scaleY = axisScale(requested.y, predicted.y + Math.min(0.0, minY - previous.y), predicted.y + Math.max(0.0, maxY - previous.y));
-        double scaleZ = axisScale(requested.z, predicted.z + Math.min(0.0, minZ - previous.z), predicted.z + Math.max(0.0, maxZ - previous.z));
+        double scaleX = axisScale(requested.x, predicted.x + Math.min(0.0, minX - previous.x),
+                predicted.x + Math.max(0.0, maxX - previous.x));
+        double scaleY = axisScale(requested.y, predicted.y + Math.min(0.0, minY - previous.y),
+                predicted.y + Math.max(0.0, maxY - previous.y));
+        double scaleZ = axisScale(requested.z, predicted.z + Math.min(0.0, minZ - previous.z),
+                predicted.z + Math.max(0.0, maxZ - previous.z));
         double scale = Math.max(scaleX, Math.max(scaleY, scaleZ));
         if (!Double.isFinite(scale) || scale < EPSILON) return;
 
@@ -122,7 +177,7 @@ public final class RocketBoost extends Module {
         if (!Double.isFinite(limit) || scale >= limit) return;
 
         Vec3 clamped = requested.scale(1.0 / scale);
-        if (finite(clamped)) overridingFireworkVelocity = clamped;
+        if (finite(clamped)) computedSafeOverride = clamped;
     }
 
     private double axisScale(double desired, double min, double max) {
@@ -136,17 +191,18 @@ public final class RocketBoost extends Module {
         double horizontalLook = Math.sqrt(look.x * look.x + look.z * look.z);
         double horizontalVelocity = velocity.horizontalDistance();
         double gravity = mc.player.getAttributeValue(Attributes.GRAVITY);
-        double pitch = Math.asin(clamp(-look.y, -1.0, 1.0));
-        double cosSquared = Math.cos(pitch) * Math.cos(pitch);
+        double pitchRadians = Math.asin(clamp(-look.y, -1.0, 1.0));
+        double cosSquared = Math.cos(pitchRadians) * Math.cos(pitchRadians);
         Vec3 result = velocity.add(0.0, gravity * (-1.0 + cosSquared * 0.75), 0.0);
 
         if (result.y < 0.0 && horizontalLook > 0.0) {
             double lift = result.y * -0.1 * cosSquared;
             result = result.add(look.x * lift / horizontalLook, lift, look.z * lift / horizontalLook);
         }
-        if (pitch < 0.0 && horizontalLook > 0.0) {
-            double climb = horizontalVelocity * -Math.sin(pitch) * 0.04;
-            result = result.add(-look.x * climb / horizontalLook, climb * 3.2, -look.z * climb / horizontalLook);
+        if (pitchRadians < 0.0 && horizontalLook > 0.0) {
+            double climb = horizontalVelocity * -Math.sin(pitchRadians) * 0.04;
+            result = result.add(-look.x * climb / horizontalLook, climb * 3.2,
+                    -look.z * climb / horizontalLook);
         }
         if (horizontalLook > 0.0) {
             result = result.add((look.x / horizontalLook * horizontalVelocity - result.x) * 0.1, 0.0,
@@ -155,22 +211,10 @@ public final class RocketBoost extends Module {
         return result.multiply(0.9900000095367432, 0.9800000190734863, 0.9900000095367432);
     }
 
-    private Vec3 simulateFluid(Vec3 velocity, boolean water, boolean lava) {
+    private static Vec3 simulateFluid(Vec3 velocity, boolean water, boolean lava) {
         if (water) return velocity.scale(0.8).add(0.0, -0.005, 0.0);
         if (lava) return velocity.scale(0.5).add(0.0, -0.02, 0.0);
         return velocity;
-    }
-
-    private boolean hasMovementInput() {
-        return mc.options.keyUp.isDown() || mc.options.keyDown.isDown() || mc.options.keyLeft.isDown()
-                || mc.options.keyRight.isDown() || mc.options.keyJump.isDown() || mc.options.keyShift.isDown();
-    }
-
-    private boolean isAligned(Vec3 look) {
-        Vec3 velocity = mc.player.getDeltaMovement();
-        if (velocity.lengthSqr() < EPSILON) return true;
-        double dot = clamp(velocity.normalize().dot(look.normalize()), -1.0, 1.0);
-        return Math.toDegrees(Math.acos(dot)) <= alignment.getValue();
     }
 
     private boolean passesSafetyChecks(Vec3 velocity) {
@@ -182,7 +226,8 @@ public final class RocketBoost extends Module {
         Vec3 start = mc.player.position();
         for (int tick = 1; tick <= lookahead.getValue(); tick++) {
             Vec3 position = start.add(velocity.scale(tick));
-            if (!mc.level.hasChunk(((int) Math.floor(position.x)) >> 4, ((int) Math.floor(position.z)) >> 4)) return false;
+            if (!mc.level.hasChunk(((int) Math.floor(position.x)) >> 4,
+                    ((int) Math.floor(position.z)) >> 4)) return false;
         }
         return true;
     }
@@ -212,7 +257,9 @@ public final class RocketBoost extends Module {
 
     private void resetState() {
         lastKnownClientVelocity = Vec3.ZERO;
-        overridingFireworkVelocity = null;
+        currentFireworkVelocity = null;
+        nextTravelOverride = null;
+        computedSafeOverride = null;
         lastPitch = 0.0f;
         lastYaw = 0.0f;
         lastInWater = false;

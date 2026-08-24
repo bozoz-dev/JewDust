@@ -27,10 +27,12 @@ import dev.axziom.features.modules.world.BomberModule;
 import dev.axziom.features.modules.world.SpeedMineModule;
 import dev.axziom.features.modules.world.NukerModule;
 import dev.axziom.features.modules.world.ScaffoldModule;
+import dev.axziom.features.modules.render.BlockEspModule;
 import dev.axziom.features.modules.render.BlockHighlightModule;
 import dev.axziom.features.modules.render.BreadcrumbsModule;
 import dev.axziom.features.modules.render.BreakIndicatorsModule;
 import dev.axziom.features.modules.render.CrystalHandModule;
+import dev.axziom.features.modules.render.SearchModule;
 import dev.axziom.features.modules.render.ShadersModule;
 import dev.axziom.features.modules.render.SkyboxModule;
 import dev.axziom.features.modules.render.SeeThroughModule;
@@ -46,6 +48,9 @@ import dev.axziom.features.modules.render.ViewModelModule;
 import dev.axziom.features.modules.movement.ElytraSwap;
 import dev.axziom.features.modules.movement.Pitch40;
 import dev.axziom.features.modules.movement.RocketBoost;
+import dev.axziom.features.modules.movement.YawLockModule;
+import dev.axziom.features.modules.player.FreeLookModule;
+import dev.axziom.features.modules.player.FreecamModule;
 import dev.axziom.features.modules.render.StorageEspModule;
 import dev.axziom.features.modules.render.SwingModule;
 import dev.axziom.features.modules.render.TracersModule;
@@ -133,9 +138,14 @@ public class ModuleManager implements Jsonable, Util {
         register(new ElytraSwap());
         register(new Pitch40());
         register(new RocketBoost());
+        register(new YawLockModule());
+        register(new FreeLookModule());
+        register(new FreecamModule());
         register(new StorageEspModule());
         register(new SwingModule());
         register(new TracersModule());
+        register(new BlockEspModule());
+        register(new SearchModule());
 
         LOGGER.info("Registered {} modules", modules.size());
 
@@ -187,8 +197,8 @@ public class ModuleManager implements Jsonable, Util {
     public void onTick() {
         stream().filter(Feature::isEnabled).forEach(Module::onTick);
         stream().filter(m -> m.isEnabled()
-                && m.getBindMode() == Module.BindMode.HOLD
-                && !m.getBind().isDown())
+                        && m.getBindMode() == Module.BindMode.HOLD
+                        && !m.getBind().isDown())
                 .toList()
                 .forEach(Module::disable);
     }
@@ -220,8 +230,8 @@ public class ModuleManager implements Jsonable, Util {
     public void onKeyReleased(int key) {
         if (key <= 0) return;
         stream().filter(module -> module.getBind().getKey() == key
-                && module.getBindMode() == Module.BindMode.HOLD
-                && module.isEnabled())
+                        && module.getBindMode() == Module.BindMode.HOLD
+                        && module.isEnabled())
                 .forEach(Module::disable);
     }
 
@@ -240,8 +250,8 @@ public class ModuleManager implements Jsonable, Util {
     public void onMouseReleased(int button) {
         int key = Bind.MOUSE_BUTTON_OFFSET + button;
         stream().filter(module -> module.getBind().getKey() == key
-                && module.getBindMode() == Module.BindMode.HOLD
-                && module.isEnabled())
+                        && module.getBindMode() == Module.BindMode.HOLD
+                        && module.isEnabled())
                 .forEach(Module::disable);
     }
 

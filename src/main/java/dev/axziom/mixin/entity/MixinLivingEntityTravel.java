@@ -1,7 +1,9 @@
 package dev.axziom.mixin.entity;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import dev.axziom.JewDust;
+import dev.axziom.features.modules.movement.RocketBoost;
 import dev.axziom.manager.RotationManager;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.Blocks;
@@ -41,6 +43,16 @@ public class MixinLivingEntityTravel {
         LivingEntity self = (LivingEntity) (Object) this;
         self.setYRot(jewdust$origYaw);
         self.setXRot(jewdust$origPitch);
+    }
+
+    @ModifyReturnValue(method = "updateFallFlyingMovement", at = @At("RETURN"))
+    private Vec3 jewdust$rocketBoostTravel(Vec3 vanillaVelocity) {
+        if ((Object) this != mc.player || JewDust.moduleManager == null) return vanillaVelocity;
+        RocketBoost rocketBoost = JewDust.moduleManager.getModuleByClass(RocketBoost.class);
+        if (rocketBoost == null || !rocketBoost.isEnabled()) return vanillaVelocity;
+
+        Vec3 override = rocketBoost.consumeTravelOverride();
+        return override == null ? vanillaVelocity : override;
     }
 
     @ModifyExpressionValue(

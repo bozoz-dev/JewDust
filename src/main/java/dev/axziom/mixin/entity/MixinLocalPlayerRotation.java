@@ -1,9 +1,10 @@
 package dev.axziom.mixin.entity;
 
 import dev.axziom.JewDust;
+import dev.axziom.features.modules.movement.RocketBoost;
+import dev.axziom.features.modules.movement.YawLockModule;
 import dev.axziom.manager.RotationManager;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -11,65 +12,82 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import static dev.axziom.util.traits.Util.mc;
-
 @Mixin(value = LocalPlayer.class, priority = Integer.MAX_VALUE)
 public class MixinLocalPlayerRotation {
     @Shadow private float xRotLast;
 
-    @Unique private float jewdust$savedYaw, jewdust$savedPitch;
+    @Unique private float jewdust$savedYaw;
+    @Unique private float jewdust$savedPitch;
     @Unique private boolean jewdust$spoofed;
 
     @Inject(method = "sendPosition", at = @At("HEAD"))
     private void jewdust$spoofRotationHead(CallbackInfo ci) {
         jewdust$spoofed = false;
-        RotationManager rm = JewDust.rotationManager;
-        if (rm == null) return;
+        LocalPlayer player = (LocalPlayer) (Object) this;
+        RotationManager rotation = JewDust.rotationManager;
 
-        boolean motion = rm.isRotating();
-        boolean silent = rm.isSilentSyncRequired();
-        if (!motion && !silent) return;
+        boolean motionRotation = rotation != null && rotation.isRotating();
+        boolean managerSilent = rotation != null && rotation.isSilentSyncRequired();
+        boolean viewSilent = false;
 
-        jewdust$savedYaw = mc.player.getYRot();
-        jewdust$savedPitch = mc.player.getXRot();
+        jewdust$savedYaw = player.getYRot();
+        jewdust$savedPitch = player.getXRot();
+        float outputYaw = jewdust$savedYaw;
+        float outputPitch = jewdust$savedPitch;
 
-        float outYaw = jewdust$savedYaw;
-        float outPitch = jewdust$savedPitch;
+        // Existing combat rotations keep priority over camera utility modules.
+        if (motionRotation) {
+            outputYaw = rotation.getRotationYaw();
+            outputPitch = rotation.getRotationPitch();
+        } else if (managerSilent) {
+            // The old code restored the client rotation here, undoing every
+            // silent request. Send the manager's actual server rotation instead.
+            outputYaw = rotation.getServerYaw();
+            outputPitch = rotation.getServerPitch();
+        } else if (JewDust.moduleManager != null) {
+            RocketBoost rocketBoost = JewDust.moduleManager.getModuleByClass(RocketBoost.class);
+            if (rocketBoost != null && rocketBoost.hasSilentPitchOverride()) {
+                outputYaw = rocketBoost.getControlledYaw();
+                outputPitch = rocketBoost.getControlledPitch();
+                viewSilent = true;
+            }
 
-        if (motion) {
-            outYaw = rm.getRotationYaw();
-            outPitch = rm.getRotationPitch();
-            rm.setServerDeltaYaw(outYaw - rm.getServerYaw());
-            rm.setServerYaw(outYaw);
-            rm.setServerPitch(outPitch);
-        } else {
-            xRotLast -= 4;
-            float f = (float) ((Math.random() * 2.0 - 1.0) * 0.001f);
-            outPitch = Mth.clamp(outPitch + f, -90.0f, 90.0f);
+            YawLockModule yawLock = JewDust.moduleManager.getModuleByClass(YawLockModule.class);
+            if (yawLock != null && yawLock.hasSilentServerYaw()) {
+                outputYaw = yawLock.getLockedYaw();
+                viewSilent = true;
+            }
         }
 
-        mc.player.setYRot(outYaw);
-        mc.player.setXRot(outPitch);
+        if (!motionRotation && !managerSilent && !viewSilent) return;
+
+        // Force sendPosition to include rotation even when the locked angle has
+        // not changed since the previous movement packet.
+        xRotLast -= 4.0f;
+        player.setYRot(outputYaw);
+        player.setXRot(outputPitch);
         jewdust$spoofed = true;
+
+        if (rotation != null) {
+            rotation.setServerDeltaYaw(outputYaw - rotation.getServerYaw());
+            rotation.setServerYaw(outputYaw);
+            rotation.setServerPitch(outputPitch);
+        }
     }
 
     @Inject(method = "sendPosition", at = @At("TAIL"))
     private void jewdust$spoofRotationTail(CallbackInfo ci) {
-        RotationManager rm = JewDust.rotationManager;
-        if (rm == null) return;
-
-        if (rm.isRotating()) {
-            rm.setServerYaw(mc.player.getYRot());
-            rm.setServerPitch(mc.player.getXRot());
-        }
-
+        LocalPlayer player = (LocalPlayer) (Object) this;
         if (jewdust$spoofed) {
-            mc.player.setYRot(jewdust$savedYaw);
-            mc.player.setXRot(jewdust$savedPitch);
+            player.setYRot(jewdust$savedYaw);
+            player.setXRot(jewdust$savedPitch);
             jewdust$spoofed = false;
         }
 
-        rm.setSilentSyncRequired(false);
-        rm.resetSilentTick();
+        RotationManager rotation = JewDust.rotationManager;
+        if (rotation != null) {
+            rotation.setSilentSyncRequired(false);
+            rotation.resetSilentTick();
+        }
     }
 }
