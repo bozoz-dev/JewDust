@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Set;
 
-@Mixin(LevelRenderer.class)
+@Mixin(value = LevelRenderer.class, priority = 500)
 public class MixinShaderLevelRenderer {
     @Shadow
     private RenderTarget entityOutlineTarget;
@@ -36,7 +36,8 @@ public class MixinShaderLevelRenderer {
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/ShaderManager;getPostChain(Lnet/minecraft/resources/Identifier;Ljava/util/Set;)Lnet/minecraft/client/renderer/PostChain;"
-        )
+        ),
+        require = 0
     )
     private PostChain jewdust$swapEntityOutlineChain(net.minecraft.client.renderer.ShaderManager sm,
                                                       Identifier id,

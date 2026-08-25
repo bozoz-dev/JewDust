@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import static dev.axziom.util.traits.Util.EVENT_BUS;
 
-@Mixin(Gui.class)
+@Mixin(value = Gui.class, priority = 500)
 public abstract class MixinInGameHud {
     @Shadow
     protected abstract void renderTextureOverlay(GuiGraphics context, Identifier texture, float alpha);
@@ -82,7 +82,8 @@ public abstract class MixinInGameHud {
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/gui/Gui;renderTextureOverlay(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/resources/Identifier;F)V"
-        )
+        ),
+        require = 0
     )
     private void jewdust$noCameraOverlay(Gui instance, GuiGraphics context, Identifier texture, float alpha) {
         if (NoRenderModule.isActive(m -> m.noPowderedSnow.getValue()) && POWDER_SNOW_OUTLINE_LOCATION.equals(texture)) {
