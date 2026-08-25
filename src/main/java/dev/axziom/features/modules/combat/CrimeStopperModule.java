@@ -32,7 +32,7 @@ public class CrimeStopperModule extends Module {
     private int scanTimer;
 
     public CrimeStopperModule() {
-        super("Crime stopper", "Stops crime - checks if a player is a nigger and follows them and kills em if they are", Category.COMBAT);
+        super("Crime stopper", "Stops crime, checks our minority database and subdues the potential criminal", Category.COMBAT);
     }
 
     @Override
