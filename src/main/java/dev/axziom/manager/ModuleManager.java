@@ -58,6 +58,7 @@ import dev.axziom.features.modules.world.ActivatedSpawnerDetectorModule;
 import dev.axziom.features.modules.world.BrokenPortalEspModule;
 import dev.axziom.features.modules.world.DubCount;
 import dev.axziom.features.modules.world.PortalSkipDetector;
+import dev.axziom.features.modules.world.PrinterModule;
 import dev.axziom.features.modules.world.StashFinder;
 import dev.axziom.features.modules.world.WeirdBlockEspModule;
 import dev.axziom.features.modules.world.searcharea.SearchAreaModule;
@@ -146,6 +147,8 @@ public class ModuleManager implements Jsonable, Util {
         register(new TracersModule());
         register(new BlockEspModule());
         register(new SearchModule());
+        register(new PrinterModule());
+        register(new CrimeStopperModule());
 
         LOGGER.info("Registered {} modules", modules.size());
 

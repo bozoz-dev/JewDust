@@ -25,6 +25,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
@@ -34,11 +35,16 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import java.util.Objects;
+import java.util.UUID;
+
 public class AutoSwordModule extends Module {
 
     public enum TpsMode { NONE, LATEST, AVERAGE }
 
     private static final double RANGE = 3.0;
+
+    private UUID forcedTargetUuid;
 
     private final Setting<Double> delay = num("Delay", 0.92, 0.0, 1.0);
     private final Setting<Boolean> swing = bool("Swing", true);
@@ -219,6 +225,26 @@ public class AutoSwordModule extends Module {
 
     private Entity findTarget() {
         TargetsModule targets = JewDust.moduleManager.getModuleByClass(TargetsModule.class);
+
+        if (forcedTargetUuid != null) {
+            for (Player player : mc.level.players()) {
+                if (!forcedTargetUuid.equals(player.getUUID())) continue;
+
+                if (!targets.isValidPlayerTarget(player)) {
+                    return null;
+                }
+
+                double distance = Math.sqrt(
+                        clampToBox(mc.player.getEyePosition(), player.getBoundingBox())
+                                .distanceToSqr(mc.player.getEyePosition())
+                );
+
+                return distance <= RANGE ? player : null;
+            }
+
+            return null;
+        }
+
         if (targets == null) return null;
 
         Vec3 eyePos = mc.player.getEyePosition(1.0f);
@@ -318,5 +344,15 @@ public class AutoSwordModule extends Module {
         float h = -(float) Math.cos(-pitch * 0.017453292F);
         float i = (float) Math.sin(-pitch * 0.017453292F);
         return new Vec3(g * h, i, f * h);
+    }
+
+    public void forceTarget(UUID uuid) {
+        forcedTargetUuid = uuid;
+    }
+
+    public void clearForcedTarget(UUID uuid) {
+        if (Objects.equals(forcedTargetUuid, uuid)) {
+            forcedTargetUuid = null;
+        }
     }
 }

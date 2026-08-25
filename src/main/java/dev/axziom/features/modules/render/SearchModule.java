@@ -16,8 +16,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.VaultBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -37,29 +35,22 @@ import java.util.Map;
 import java.util.Set;
 
 public final class SearchModule extends Module implements TargetListCommandSource {
-    private static final String NORMAL_VAULT = "minecraft:vault";
-    private static final String OMINOUS_VAULT = "minecraft:ominous_vault";
-
     public final Setting<String> blockTargets = str("BlockTargets", "").setPage("Targets");
     public final Setting<String> blockEntityTargets = str("BlockEntityTargets", "").setPage("Targets");
     public final Setting<String> entityTargets = str("EntityTargets", "").setPage("Targets");
     public final Setting<String> itemTargets = str("ItemTargets", "").setPage("Targets");
+
     public final Setting<Double> range = num("Range", 128.0, 16.0, 512.0).setPage("Scan");
     public final Setting<Integer> chunksPerTick = num("ChunksPerTick", 1, 1, 8).setPage("Scan");
     public final Setting<Integer> rescanDelay = num("RescanDelay", 200, 20, 1200).setPage("Scan");
-    public final Setting<PortRender.ShapeMode> shapeMode = mode("ShapeMode", PortRender.ShapeMode.BOTH)
-            .setPage("Render");
+
+    public final Setting<PortRender.ShapeMode> shapeMode = mode("ShapeMode", PortRender.ShapeMode.BOTH).setPage("Render");
     public final Setting<Boolean> tracers = bool("Tracers", false).setPage("Render");
     public final Setting<Integer> maxTracers = num("MaxTracers", 128, 1, 2048).setPage("Render");
     public final Setting<Color> blockColour = color("BlockColour", 145, 79, 220, 255).setPage("Render");
-    public final Setting<Color> blockEntityColour = color("BlockEntityColour", 145, 79, 220, 255)
-            .setPage("Render");
+    public final Setting<Color> blockEntityColour = color("BlockEntityColour", 145, 79, 220, 255).setPage("Render");
     public final Setting<Color> entityColour = color("EntityColour", 145, 79, 220, 255).setPage("Render");
     public final Setting<Color> itemColour = color("ItemColour", 145, 79, 220, 255).setPage("Render");
-    public final Setting<Color> normalVaultColour = color("NormalVaultColour", 145, 79, 220, 255)
-            .setPage("Render");
-    public final Setting<Color> ominousVaultColour = color("OminousVaultColour", 255, 96, 32, 255)
-            .setPage("Render");
 
     private final ArrayDeque<ChunkPos> pending = new ArrayDeque<>();
     private final Set<Long> queued = new HashSet<>();
@@ -169,10 +160,6 @@ public final class SearchModule extends Module implements TargetListCommandSourc
     private void rebuildTargetBlocks() {
         targetBlocks.clear();
         for (String target : blocks) {
-            if (OMINOUS_VAULT.equals(target)) {
-                targetBlocks.add(Blocks.VAULT);
-                continue;
-            }
             Identifier id = Identifier.tryParse(target);
             if (id != null && BuiltInRegistries.BLOCK.containsKey(id)) {
                 targetBlocks.add(BuiltInRegistries.BLOCK.getValue(id));
@@ -248,12 +235,6 @@ public final class SearchModule extends Module implements TargetListCommandSourc
     }
 
     private FoundKind blockKind(BlockState state) {
-        if (state.getBlock() == Blocks.VAULT) {
-            boolean ominous = state.hasProperty(VaultBlock.OMINOUS) && state.getValue(VaultBlock.OMINOUS);
-            if (ominous && blocks.contains(OMINOUS_VAULT)) return FoundKind.OMINOUS_VAULT;
-            if (!ominous && blocks.contains(NORMAL_VAULT)) return FoundKind.NORMAL_VAULT;
-            return null;
-        }
         return targetBlocks.contains(state.getBlock()) ? FoundKind.BLOCK : null;
     }
 
@@ -358,8 +339,6 @@ public final class SearchModule extends Module implements TargetListCommandSourc
             case BLOCK_ENTITY -> blockEntityColour.getValue();
             case ENTITY -> entityColour.getValue();
             case ITEM -> itemColour.getValue();
-            case NORMAL_VAULT -> normalVaultColour.getValue();
-            case OMINOUS_VAULT -> ominousVaultColour.getValue();
         };
     }
 
@@ -388,9 +367,7 @@ public final class SearchModule extends Module implements TargetListCommandSourc
     }
 
     private static String normalizeBlock(String input) {
-        String value = input.trim().toLowerCase(Locale.ROOT);
-        if (value.equals("ominous_vault") || value.equals(OMINOUS_VAULT)) return OMINOUS_VAULT;
-        return normalize(value, BuiltInRegistries.BLOCK);
+        return normalize(input, BuiltInRegistries.BLOCK);
     }
 
     private static <T> String normalize(String input, Registry<T> registry) {
@@ -401,10 +378,7 @@ public final class SearchModule extends Module implements TargetListCommandSourc
     }
 
     private static Collection<String> blockSuggestions() {
-        List<String> values = new ArrayList<>(suggestions(BuiltInRegistries.BLOCK));
-        values.add(OMINOUS_VAULT);
-        values.sort(String::compareTo);
-        return values;
+        return suggestions(BuiltInRegistries.BLOCK);
     }
 
     private static <T> Collection<String> suggestions(Registry<T> registry) {
@@ -415,7 +389,7 @@ public final class SearchModule extends Module implements TargetListCommandSourc
     }
 
     private enum FoundKind {
-        BLOCK, BLOCK_ENTITY, ENTITY, ITEM, NORMAL_VAULT, OMINOUS_VAULT
+        BLOCK, BLOCK_ENTITY, ENTITY, ITEM
     }
 
     private record FoundWorldTarget(BlockPos pos, FoundKind kind) {
@@ -424,3 +398,4 @@ public final class SearchModule extends Module implements TargetListCommandSourc
     private record EntityTarget(AABB box, FoundKind kind) {
     }
 }
+

@@ -207,12 +207,13 @@ public class ModuleButton extends Button {
 
     @Override
     public void mouseClicked(int mouseX, int mouseY, int mouseButton) {
+        if (!items.isEmpty() && this.isHovering(mouseX, mouseY)
+                && (mouseButton == 1 || (mouseButton == 0 && isHoveringArrow(mouseX)))) {
+            toggleSubOpen();
+            return;
+        }
         super.mouseClicked(mouseX, mouseY, mouseButton);
         if (items.isEmpty()) return;
-        if (mouseButton == 1 && this.isHovering(mouseX, mouseY)) {
-            this.subOpen = !this.subOpen;
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
-        }
         if (!subOpen) return;
         List<String> pages = visiblePages();
         String page = resolveCurrentPage(pages);
@@ -230,6 +231,11 @@ public class ModuleButton extends Button {
             }
         }
         forEachActive(page, item -> item.mouseClicked(mouseX, mouseY, mouseButton));
+    }
+
+    private boolean isHoveringArrow(int mouseX) {
+        return mouseX >= this.x + this.width - ARROW_HITBOX
+                && mouseX <= this.x + this.width;
     }
 
     private void drawPageSwitcher(GuiGraphics context, float top, int mouseX, int mouseY, String page) {

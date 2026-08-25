@@ -32,7 +32,7 @@ public class Button extends Item {
 
     public static void drawSelectionRing(GuiGraphics context, float x1, float y1, float x2, float y2,
                                          Color accent) {
-        if (accent == null) accent = new Color(145, 79, 220, 255);
+        if (accent == null) accent = new Color(110, 120, 130);
         int inner = GuiTheme.withAlpha(GuiTheme.brighten(accent, 0.65f), 230).getRGB();
         int outer = GuiTheme.withAlpha(GuiTheme.brighten(accent, 0.45f), 140).getRGB();
         RenderUtil.rect(context, x1, y1, x2, y2, outer, 2f);
@@ -48,18 +48,19 @@ public class Button extends Item {
 
     public static void drawRow(GuiGraphics context, float x1, float y1, float x2, float y2,
                                boolean enabled, boolean hovering) {
-        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220, 255);
+        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220);
 
         float fillBottom = y2 - 1f;
         if (enabled) {
-            RenderUtil.rect(context, x1, y1, x2, fillBottom, accent.getRGB());
+            RenderUtil.rect(context, x1, y1, x2, fillBottom,
+                    GuiTheme.withAlpha(accent, GuiTheme.ACTIVE_ROW_ALPHA).getRGB());
             if (hovering) {
                 RenderUtil.rect(context, x1, y1, x2, fillBottom, GuiTheme.HIGHLIGHT_TOP);
             }
             RenderUtil.rect(context, x1, y1, x2, y1 + 1f, GuiTheme.HIGHLIGHT_TOP);
         } else if (hovering) {
             RenderUtil.rect(context, x1, y1, x2, fillBottom,
-                    GuiTheme.withAlpha(accent, 60).getRGB());
+                    GuiTheme.withAlpha(accent, GuiTheme.HOVER_ROW_ALPHA).getRGB());
         }
     }
 

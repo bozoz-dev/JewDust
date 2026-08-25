@@ -55,9 +55,9 @@ public class SpeedMineModule extends Module implements MineApi {
 
     private final Setting<Boolean> render = bool("Render", true).setPage("Render");
     private final Setting<Float> lineWidth = num("LineWidth", 2.0f, 0.5f, 5.0f).setPage("Render");
-    private final Setting<Color> lineColor = color("LineColor", 145, 79, 220, 255).setPage("Render");
-    private final Setting<Color> sideColor = color("SideColor", 145, 79, 220, 255).setPage("Render");
-    private final Setting<Color> primaryColor = color("PrimaryColor", 145, 79, 220, 255).setPage("Render");
+    private final Setting<Color> lineColor = color("LineColor", 255, 255, 255, 150).setPage("Render");
+    private final Setting<Color> sideColor = color("SideColor", 255, 255, 255, 40).setPage("Render");
+    private final Setting<Color> primaryColor = color("PrimaryColor", 255, 180, 255, 60).setPage("Render");
 
     private BlockPos pos;
     private Direction direction;
@@ -469,12 +469,12 @@ public class SpeedMineModule extends Module implements MineApi {
         ItemStack stack = mc.player.getInventory().getItem(slot);
         return JewDust.swapManager.withSwap(new Result(slot, stack, ResultType.HOTBAR), SwapMode.SILENT,
                 SwapPriority.MINING, () -> {
-            if (cooldown) stopCooldown = breakDelay.getValue();
-            sendAction(ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, validFace(pos));
-            if (swing.getValue()) {
-                mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-            }
-        });
+                    if (cooldown) stopCooldown = breakDelay.getValue();
+                    sendAction(ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos, validFace(pos));
+                    if (swing.getValue()) {
+                        mc.getConnection().send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                    }
+                });
     }
 
     private void abortBreak() {

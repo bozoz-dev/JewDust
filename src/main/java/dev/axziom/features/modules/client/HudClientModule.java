@@ -1,6 +1,9 @@
 package dev.axziom.features.modules.client;
 
+import dev.axziom.event.impl.entity.DeathEvent;
+import dev.axziom.event.impl.network.DisconnectEvent;
 import dev.axziom.event.impl.render.Render2DEvent;
+import dev.axziom.event.system.Subscribe;
 import dev.axziom.features.modules.Module;
 import dev.axziom.features.modules.hud.ActiveModulesHudModule;
 import dev.axziom.features.modules.hud.ArmorHudModule;
@@ -95,6 +98,36 @@ public class HudClientModule extends Module {
             if (type.isInstance(entry.getKey())) return entry.getValue().getValue();
         }
         return false;
+    }
+
+    public boolean setElementEnabled(Class<? extends HudModule> type, boolean enabled) {
+        for (Map.Entry<HudModule, Setting<Boolean>> entry : elements.entrySet()) {
+            if (!type.isInstance(entry.getKey())) continue;
+            boolean changed = entry.getValue().getValue() != enabled;
+            entry.getValue().setValue(enabled);
+            return changed;
+        }
+        return false;
+    }
+
+    @Override
+    public void onTick() {
+        if (nullCheck() || !isElementEnabled(CoordinatesHudModule.class)) return;
+        CoordinatesHudModule coordinates = getElement(CoordinatesHudModule.class);
+        if (coordinates != null) coordinates.onPlayerTick();
+    }
+
+    @Subscribe
+    public void onDeath(DeathEvent event) {
+        if (!isElementEnabled(CoordinatesHudModule.class)) return;
+        CoordinatesHudModule coordinates = getElement(CoordinatesHudModule.class);
+        if (coordinates != null) coordinates.onPlayerDeath(event.getEntity());
+    }
+
+    @Subscribe
+    public void onDisconnect(DisconnectEvent event) {
+        CoordinatesHudModule coordinates = getElement(CoordinatesHudModule.class);
+        if (coordinates != null) coordinates.resetTracking();
     }
 
     @Override

@@ -22,17 +22,17 @@ public class BooleanButton extends SettingButton<Boolean> {
     @Override
     public void drawScreen(GuiGraphics context, int mouseX, int mouseY, float partialTicks) {
         boolean hovering = this.isHovering(mouseX, mouseY);
-        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220, 255);
+        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220);
         if (this.getState()) {
             RenderUtil.rect(context, this.x, this.y, this.x + this.width, this.y + this.height,
-                    accent.getRGB());
+                    GuiTheme.withAlpha(accent, GuiTheme.SETTING_ON_ALPHA).getRGB());
             if (hovering) {
                 RenderUtil.rect(context, this.x, this.y, this.x + this.width, this.y + this.height,
                         GuiTheme.HIGHLIGHT_TOP);
             }
         } else if (hovering) {
             RenderUtil.rect(context, this.x, this.y, this.x + this.width, this.y + this.height,
-                    GuiTheme.withAlpha(accent, 60).getRGB());
+                    GuiTheme.withAlpha(accent, GuiTheme.HOVER_ROW_ALPHA).getRGB());
         }
         int textColor = this.getState() ? GuiTheme.TEXT_MODULE_ON : GuiTheme.TEXT_SETTING;
         drawScrollableString(this.getName(), this.x + 2f,

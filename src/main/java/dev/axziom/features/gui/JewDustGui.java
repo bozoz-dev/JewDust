@@ -8,6 +8,7 @@ import dev.axziom.features.gui.items.TextBox;
 import dev.axziom.util.render.GuiFade;
 import dev.axziom.features.gui.items.buttons.ModuleButton;
 import dev.axziom.features.modules.Module;
+import dev.axziom.util.render.font.Fonts;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -35,6 +36,7 @@ public class JewDustGui extends Screen {
 
     private final ArrayList<Widget> widgets = new ArrayList<>();
     private SearchBar searchBar;
+    private int lastLayoutWidth = -1;
 
     public JewDustGui() {
         super(Component.literal("JewDust"));
@@ -59,11 +61,12 @@ public class JewDustGui extends Screen {
 
     private void load() {
         int spacing = GuiTheme.PANEL_WIDTH + GuiTheme.PANEL_SPACING;
-        int x = 6 - spacing;
+        int x = GuiTheme.SCREEN_MARGIN - spacing;
         for (Module.Category category : JewDust.moduleManager.getCategories()) {
             if (category == Module.Category.HUD) continue;
             if (category == Module.Category.FUNNY && !JewDust.commandManager.isFunnyVisible()) continue;
-            Widget panel = new Widget(category.getName(), category, x += spacing, 6, true);
+            Widget panel = new Widget(category.getName(), category, x += spacing,
+                    GuiTheme.SCREEN_MARGIN, true);
             JewDust.moduleManager.stream()
                     .filter(m -> m.getCategory() == category && !m.hidden)
                     .map(ModuleButton::new)
@@ -84,6 +87,7 @@ public class JewDustGui extends Screen {
     @Override
     public void init() {
         super.init();
+        arrangePanelsIfNeeded();
         openTime = System.currentTimeMillis();
         closing = false;
         alpha = 0f;
@@ -123,11 +127,39 @@ public class JewDustGui extends Screen {
         context.pose().scale(s, s);
         this.widgets.forEach(components -> components.drawScreen(context, sx, sy, delta));
         context.pose().popMatrix();
+        drawControlsHint(context);
         GuiFade.alpha = 1f;
     }
 
     public static float getScale() {
         return 1f;
+    }
+
+    private void arrangePanelsIfNeeded() {
+        if (minecraft == null || widgets.isEmpty()) return;
+        int screenWidth = minecraft.getWindow().getGuiScaledWidth();
+        if (screenWidth == lastLayoutWidth) return;
+
+        int panelCount = widgets.size();
+        int gaps = (panelCount - 1) * GuiTheme.PANEL_SPACING;
+        int usableWidth = Math.max(0, screenWidth - GuiTheme.SCREEN_MARGIN * 2 - gaps);
+        int panelWidth = Math.max(84, Math.min(GuiTheme.PANEL_WIDTH, usableWidth / panelCount));
+
+        int x = GuiTheme.SCREEN_MARGIN;
+        for (Widget widget : widgets) {
+            widget.setX(x);
+            widget.setY(GuiTheme.SCREEN_MARGIN);
+            widget.setWidth(panelWidth);
+            x += panelWidth + GuiTheme.PANEL_SPACING;
+        }
+        lastLayoutWidth = screenWidth;
+    }
+
+    private void drawControlsHint(GuiGraphics context) {
+        String hint = "Left: toggle  Right / +: settings  Ctrl + F: search";
+        float x = context.guiWidth() - Fonts.width(hint) - 4f;
+        float y = context.guiHeight() - Fonts.lineHeight() - 3f;
+        Fonts.drawString(context, hint, x, y, GuiFade.apply(0xBFE8E2EA));
     }
 
     @Override
@@ -170,7 +202,7 @@ public class JewDustGui extends Screen {
         if (closing) return true;
 
         if (input.input() == GLFW.GLFW_KEY_F
-            && (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) {
+                && (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) {
             if (searchBar != null) {
                 searchBar.keyActivate();
             }
@@ -220,6 +252,8 @@ public class JewDustGui extends Screen {
     public void reload() {
         this.widgets.clear();
         load();
+        lastLayoutWidth = -1;
+        arrangePanelsIfNeeded();
     }
 
     public final ArrayList<Widget> getComponents() {

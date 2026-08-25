@@ -13,8 +13,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.VaultBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -32,10 +30,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class BlockEspModule extends Module implements TargetListCommandSource {
-    private static final String NORMAL_VAULT = "minecraft:vault";
-    private static final String OMINOUS_VAULT = "minecraft:ominous_vault";
-
-    public final Setting<String> blockTargets = str("BlockTargets", NORMAL_VAULT + "," + OMINOUS_VAULT)
+    public final Setting<String> blockTargets = str("BlockTargets", "")
             .setPage("Targets");
     public final Setting<Double> range = num("Range", 128.0, 16.0, 512.0).setPage("Scan");
     public final Setting<Integer> chunksPerTick = num("ChunksPerTick", 1, 1, 8).setPage("Scan");
@@ -45,10 +40,6 @@ public final class BlockEspModule extends Module implements TargetListCommandSou
     public final Setting<Boolean> tracers = bool("Tracers", false).setPage("Render");
     public final Setting<Integer> maxTracers = num("MaxTracers", 128, 1, 2048).setPage("Render");
     public final Setting<Color> blockColour = color("BlockColour", 145, 79, 220, 255).setPage("Render");
-    public final Setting<Color> normalVaultColour = color("NormalVaultColour", 145, 79, 220, 255)
-            .setPage("Render");
-    public final Setting<Color> ominousVaultColour = color("OminousVaultColour", 255, 96, 32, 255)
-            .setPage("Render");
 
     private final ArrayDeque<ChunkPos> pending = new ArrayDeque<>();
     private final Set<Long> queued = new HashSet<>();
@@ -132,10 +123,6 @@ public final class BlockEspModule extends Module implements TargetListCommandSou
     private void rebuildTargetBlocks() {
         targetBlocks.clear();
         for (String target : targets) {
-            if (OMINOUS_VAULT.equals(target)) {
-                targetBlocks.add(Blocks.VAULT);
-                continue;
-            }
             Identifier id = Identifier.tryParse(target);
             if (id != null && BuiltInRegistries.BLOCK.containsKey(id)) {
                 targetBlocks.add(BuiltInRegistries.BLOCK.getValue(id));
@@ -197,12 +184,6 @@ public final class BlockEspModule extends Module implements TargetListCommandSou
     }
 
     private FoundKind kindOf(BlockState state) {
-        if (state.getBlock() == Blocks.VAULT) {
-            boolean ominous = state.hasProperty(VaultBlock.OMINOUS) && state.getValue(VaultBlock.OMINOUS);
-            if (ominous && targets.contains(OMINOUS_VAULT)) return FoundKind.OMINOUS_VAULT;
-            if (!ominous && targets.contains(NORMAL_VAULT)) return FoundKind.NORMAL_VAULT;
-            return null;
-        }
         return targetBlocks.contains(state.getBlock()) ? FoundKind.BLOCK : null;
     }
 
@@ -266,11 +247,7 @@ public final class BlockEspModule extends Module implements TargetListCommandSou
     }
 
     private Color colourFor(FoundKind kind) {
-        return switch (kind) {
-            case BLOCK -> blockColour.getValue();
-            case NORMAL_VAULT -> normalVaultColour.getValue();
-            case OMINOUS_VAULT -> ominousVaultColour.getValue();
-        };
+        return blockColour.getValue();
     }
 
     @Override
@@ -295,7 +272,6 @@ public final class BlockEspModule extends Module implements TargetListCommandSou
 
     private static String normalizeBlock(String input) {
         String value = input.trim().toLowerCase(Locale.ROOT);
-        if (value.equals("ominous_vault") || value.equals(OMINOUS_VAULT)) return OMINOUS_VAULT;
         if (!value.contains(":")) value = "minecraft:" + value;
         Identifier id = Identifier.tryParse(value);
         return id != null && BuiltInRegistries.BLOCK.containsKey(id) ? id.toString() : null;
@@ -304,13 +280,12 @@ public final class BlockEspModule extends Module implements TargetListCommandSou
     private static Collection<String> blockSuggestions() {
         List<String> values = new ArrayList<>();
         BuiltInRegistries.BLOCK.keySet().forEach(id -> values.add(id.toString()));
-        values.add(OMINOUS_VAULT);
         values.sort(String::compareTo);
         return values;
     }
 
     private enum FoundKind {
-        BLOCK, NORMAL_VAULT, OMINOUS_VAULT
+        BLOCK
     }
 
     private record FoundBlock(BlockPos pos, FoundKind kind) {

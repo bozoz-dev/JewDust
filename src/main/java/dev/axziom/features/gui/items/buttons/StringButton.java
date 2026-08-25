@@ -30,7 +30,7 @@ public class StringButton extends SettingButton<String> {
     @Override
     public void drawScreen(GuiGraphics context, int mouseX, int mouseY, float partialTicks) {
         boolean hovering = isHovering(mouseX, mouseY);
-        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220, 255);
+        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220);
 
         float x1 = this.x;
         float y1 = this.y;

@@ -17,7 +17,7 @@ public class ClickGuiModule extends Module {
 
     public Setting<String>  prefix           = str("Prefix", ";");
     public Setting<Theme>   theme            = mode("Theme", Theme.JEWDUST);
-    public Setting<Color>   customColor      = color("Custom Color", 145, 79, 220, 255);
+    public Setting<Color>   customColor      = color("Custom Color", 120, 170, 210, 220);
     public Setting<Boolean> smooth           = bool("Smooth", true);
     public Setting<Integer> rainbowHue       = num("Delay", 240, 0, 600);
     public Setting<Float>   rainbowBrightness = num("Brightness", 200.0f, 1.0f, 255.0f);
@@ -27,14 +27,14 @@ public class ClickGuiModule extends Module {
     public Setting<Boolean> hudFont      = bool("HUD Font", false);
     public Setting<String>  fontName     = str("Font Name", "");
 
-    private static final Color CAT_COMBAT   = new Color(145, 79, 220, 255);
-    private static final Color CAT_WORLD    = new Color(145, 79, 220, 255);
-    private static final Color CAT_RENDER   = new Color(145, 79, 220, 255);
-    private static final Color CAT_MOVEMENT = new Color(145, 79, 220, 255);
-    private static final Color CAT_PLAYER   = new Color(145, 79, 220, 255);
-    private static final Color CAT_FUNNY    = new Color(145, 79, 220, 255);
-    private static final Color CAT_CLIENT   = new Color(145, 79, 220, 255);
-    private static final Color CAT_HUD      = new Color(145, 79, 220, 255);
+    private static final Color CAT_COMBAT   = new Color(196,  88,  90);
+    private static final Color CAT_WORLD    = new Color(118, 168, 118);
+    private static final Color CAT_RENDER   = new Color( 98, 166, 200);
+    private static final Color CAT_MOVEMENT = new Color(212, 142,  78);
+    private static final Color CAT_PLAYER   = new Color(202, 180,  92);
+    private static final Color CAT_FUNNY    = new Color(198, 124, 178);
+    private static final Color CAT_CLIENT   = new Color( 70,  75,  82);
+    private static final Color CAT_HUD      = new Color( 96, 142, 200);
 
     private static final Color JEWDUST_ACCENT = new Color(145, 79, 220, 255);
     private static final Color JEWDUST_MODULE = new Color(145, 79, 220, 255);

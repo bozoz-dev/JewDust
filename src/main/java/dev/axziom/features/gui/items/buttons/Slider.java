@@ -49,7 +49,7 @@ public class Slider extends SettingButton<Number> {
             this.dragSetting(mouseX, mouseY);
         }
 
-        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220, 255);
+        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220);
         float trackX1 = this.x;
         float trackX2 = this.x + this.width;
         float pct = partialMultiplier();

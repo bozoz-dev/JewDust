@@ -18,12 +18,19 @@ public class CountsHudModule extends HudModule {
     private static final int BUBBLE_HEIGHT = 10;
     private static final int GAP = 2;
     private static final int TEXT_PAD = 2;
+    private static final int COLUMNS = 2;
+    private static final int ROW_HEIGHT = Math.round(RENDER_ICON);
+    private static final int CELL_WIDTH = 42;
 
     private static final Item[] ITEMS = {
             Items.END_CRYSTAL,
             Items.OBSIDIAN,
             Items.ENDER_PEARL,
             Items.EXPERIENCE_BOTTLE,
+            Items.RESPAWN_ANCHOR,
+            Items.GLOWSTONE,
+            Items.PISTON,
+            Items.REDSTONE_BLOCK
     };
 
     public CountsHudModule() {
@@ -34,12 +41,15 @@ public class CountsHudModule extends HudModule {
     public void render(Render2DEvent event) {
         GuiGraphics ctx = event.getContext();
 
-        int x = screenWidth() / 2 + HOTBAR_HALF + GAP;
+        int xLeft = screenWidth() / 2 + HOTBAR_HALF + GAP;
         int yTop = screenHeight() - HUNGER_TOP_OFFSET - 1 - ICON;
         if (showingBubbles()) yTop -= BUBBLE_HEIGHT;
 
         for (int i = 0; i < ITEMS.length; i++) {
-            int y = yTop + Math.round(i * RENDER_ICON);
+            int column = i % COLUMNS;
+            int row = i / COLUMNS;
+            int x = xLeft + column * CELL_WIDTH;
+            int y = yTop + row * ROW_HEIGHT;
             int count = countItem(ITEMS[i]);
 
             ItemStack stack = new ItemStack(ITEMS[i], Math.max(count, 1));

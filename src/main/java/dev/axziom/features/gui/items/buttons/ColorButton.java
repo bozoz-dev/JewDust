@@ -138,7 +138,7 @@ public class ColorButton extends SettingButton<Color> {
         yOffset += BAR_HEIGHT + GAP;
 
         int buttonWidth = (pickerWidth - 2) / 2;
-        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220, 255);
+        Color accent = Widget.currentAccent != null ? Widget.currentAccent : new Color(145, 79, 220);
         int activeBg = accent.getRGB();
         int idleBg = GuiTheme.SLIDER_TRACK;
         float textY = this.y + yOffset + (BTN_HEIGHT - 8) / 2f + 1;

@@ -1,6 +1,6 @@
 package dev.axziom.features.gui;
 
-import dev.axziom.features.Feature;
+import  dev.axziom.features.Feature;
 import dev.axziom.features.gui.items.Item;
 import dev.axziom.features.gui.items.buttons.Button;
 import dev.axziom.features.modules.Module;
@@ -90,7 +90,7 @@ public class Widget extends Feature {
         if (Math.abs(animatedHeight - targetHeight) < 0.5f) animatedHeight = targetHeight;
 
         Color cat = accentAt(headerTop);
-        int catRGB = cat.getRGB();
+        int catRGB = GuiTheme.withAlpha(cat, GuiTheme.HEADER_ALPHA).getRGB();
 
         RenderUtil.rect(context, this.x, headerTop, this.x + this.width, headerBottom, catRGB);
 
@@ -163,16 +163,17 @@ public class Widget extends Feature {
     }
 
     public void mouseClicked(int mouseX, int mouseY, int mouseButton) {
+        if (this.isHovering(mouseX, mouseY)
+                && (mouseButton == 1 || (mouseButton == 0 && isHoveringHeaderControl(mouseX)))) {
+            this.open = !this.open;
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
+            return;
+        }
         if (mouseButton == 0 && this.isHovering(mouseX, mouseY)) {
             this.x2 = this.x - mouseX;
             this.y2 = this.y - mouseY;
             JewDustGui.getClickGui().getComponents().forEach(c -> { if (c.drag) c.drag = false; });
             this.drag = true;
-            return;
-        }
-        if (mouseButton == 1 && this.isHovering(mouseX, mouseY)) {
-            this.open = !this.open;
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
             return;
         }
         if (!this.open) return;
@@ -268,6 +269,10 @@ public class Widget extends Feature {
     public boolean isHovering(int mouseX, int mouseY) {
         return mouseX >= this.x && mouseX <= this.x + this.width
                 && mouseY >= this.y && mouseY <= this.y + this.height;
+    }
+
+    private boolean isHoveringHeaderControl(int mouseX) {
+        return mouseX >= this.x + this.width - 14 && mouseX <= this.x + this.width;
     }
 
     private float getTotalItemHeight() {
