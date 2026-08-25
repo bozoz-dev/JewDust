@@ -90,7 +90,7 @@ Linux and macOS:
 
 ## Credits
 
-- Kryspy: @chinesedog99
+- Kryspy: your a chinese dog
 - X: idk his git lol
 - a_victor: idk his either
 - packet: your a legend, i also don't know your git but i love you
